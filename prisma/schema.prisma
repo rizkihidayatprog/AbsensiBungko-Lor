@@ -1,0 +1,351 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  GURU
+}
+
+enum AttendanceStatus {
+  HADIR
+  TERLAMBAT
+  IZIN
+  SAKIT
+  ALFA
+}
+
+enum LeaveType {
+  IZIN
+  SAKIT
+}
+
+enum LeaveStatus {
+  PENDING
+  DISETUJUI
+  DITOLAK
+}
+
+enum SemesterType {
+  GANJIL
+  GENAP
+}
+
+enum EnrollmentStatus {
+  AKTIF
+  NAIK_KELAS
+  TINGGAL_KELAS
+  LULUS
+  MUTASI
+}
+
+model AcademicYear {
+  id        String         @id @default(cuid())
+  name      String         @unique // contoh: "2026/2027"
+  isActive  Boolean        @default(false) @map("is_active")
+  terms     AcademicTerm[]
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  @@map("academic_years")
+}
+
+model AcademicTerm {
+  id             String              @id @default(cuid())
+  academicYearId String              @map("academic_year_id")
+  academicYear   AcademicYear        @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  name           String              // contoh: "Semester Ganjil 2026/2027"
+  semester       SemesterType        // GANJIL atau GENAP
+  startDate      DateTime            @db.Date @map("start_date")
+  endDate        DateTime            @db.Date @map("end_date")
+  isActive       Boolean             @default(false) @map("is_active")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  attendances    StudentAttendance[]
+  enrollments    StudentEnrollment[]
+
+  @@unique([academicYearId, semester])
+  @@index([isActive])
+  @@map("academic_terms")
+}
+
+model StudentEnrollment {
+  id             String           @id @default(cuid())
+  studentId      String           @map("student_id")
+  student        Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId        String           @map("class_id")
+  class          Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  academicTermId String           @map("academic_term_id")
+  academicTerm   AcademicTerm     @relation(fields: [academicTermId], references: [id], onDelete: Cascade)
+  status         EnrollmentStatus @default(AKTIF)
+  notes          String?
+  isActive       Boolean          @default(true) @map("is_active")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  @@unique([studentId, academicTermId])
+  @@index([studentId])
+  @@index([classId])
+  @@index([academicTermId])
+  @@map("student_enrollments")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  username     String?   @unique
+  passwordHash String    @map("password_hash")
+  role         Role      @default(GURU)
+  avatarUrl    String?   @map("avatar_url")
+  teacherId    String?   @unique @map("teacher_id")
+  teacher      Teacher?  @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  createdAttendances StudentAttendance[] @relation("AttendanceCreatedBy")
+  teacherAttendances TeacherAttendance[] @relation("TeacherAttendanceCreatedBy")
+  auditLogs          AuditLog[]
+  reviewedLeaves     LeaveRequest[]      @relation("ReviewedBy")
+
+  @@map("users")
+}
+
+model Class {
+  id          String              @id @default(cuid())
+  name        String              // contoh: "7A", "1B" (tanpa awalan "Kelas")
+  grade       Int                 // tingkat: 1..6 (SD) atau 7..9 (SMP)
+  homeroomId  String?             @unique @map("teacher_id")
+  homeroom    Teacher?            @relation("HomeroomTeacher", fields: [homeroomId], references: [id], onDelete: SetNull)
+  students    Student[]
+  enrollments StudentEnrollment[]
+  attendances StudentAttendance[]
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  @@map("classes")
+}
+
+model Student {
+  id          String              @id @default(cuid())
+  nis         String              @unique
+  nisn        String?             @unique
+  name        String
+  gender      String              // "L" / "P"
+  photoUrl    String?             @map("photo_url")
+  parentName  String?             @map("parent_name")
+  parentPhone String?             @map("parent_phone")
+  classId     String              @map("class_id")
+  class       Class               @relation(fields: [classId], references: [id], onDelete: Restrict)
+  qrTokenHash String              @unique @map("qr_token_hash")
+  isActive    Boolean             @default(true) @map("is_active")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+
+  attendances   StudentAttendance[]
+  leaveRequests LeaveRequest[]
+  enrollments   StudentEnrollment[]
+
+  @@index([classId])
+  @@index([qrTokenHash])
+  @@map("students")
+}
+
+model Teacher {
+  id          String   @id @default(cuid())
+  nip         String?  @unique
+  name        String
+  gender      String   // "L" / "P"
+  phone       String?
+  qrTokenHash String   @unique @map("qr_token_hash")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user          User?
+  homeroomClass Class?              @relation("HomeroomTeacher")
+  attendances   TeacherAttendance[]
+
+  @@index([qrTokenHash])
+  @@map("teachers")
+}
+
+model StudentAttendance {
+  id             String           @id @default(cuid())
+  studentId      String           @map("student_id")
+  student        Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId        String?          @map("class_id")
+  class          Class?           @relation(fields: [classId], references: [id], onDelete: SetNull)
+  academicTermId String?          @map("academic_term_id")
+  academicTerm   AcademicTerm?    @relation(fields: [academicTermId], references: [id], onDelete: SetNull)
+  attendanceDate DateTime         @db.Date @map("attendance_date")
+  checkInAt      DateTime?        @map("check_in_at")
+  checkOutAt     DateTime?        @map("check_out_at")
+  status         AttendanceStatus @default(HADIR)
+  lateMinutes    Int              @default(0) @map("late_minutes")
+  notes          String?          @db.Text
+  createdById    String?          @map("created_by")
+  createdBy      User?            @relation("AttendanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  @@unique([studentId, attendanceDate])
+  @@index([attendanceDate])
+  @@index([status])
+  @@index([academicTermId])
+  @@index([classId])
+  @@map("student_attendances")
+}
+
+model TeacherAttendance {
+  id             String           @id @default(cuid())
+  teacherId      String           @map("teacher_id")
+  teacher        Teacher          @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  attendanceDate DateTime         @db.Date @map("attendance_date")
+  checkInAt      DateTime?        @map("check_in_at")
+  checkOutAt     DateTime?        @map("check_out_at")
+  status         AttendanceStatus @default(HADIR)
+  lateMinutes    Int              @default(0) @map("late_minutes")
+  notes          String?          @db.Text
+  createdById    String?          @map("created_by")
+  createdBy      User?            @relation("TeacherAttendanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  @@unique([teacherId, attendanceDate])
+  @@index([attendanceDate])
+  @@index([status])
+  @@map("teacher_attendances")
+}
+
+model LeaveRequest {
+  id            String      @id @default(cuid())
+  studentId     String      @map("student_id")
+  student       Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type          LeaveType
+  startDate     DateTime    @db.Date @map("start_date")
+  endDate       DateTime    @db.Date @map("end_date")
+  reason        String      @db.Text
+  attachmentUrl String?     @map("attachment_url")
+  attachmentName String?   @map("attachment_name")
+  status        LeaveStatus @default(PENDING)
+  reviewerId    String?     @map("reviewer_id")
+  reviewer      User?       @relation("ReviewedBy", fields: [reviewerId], references: [id], onDelete: SetNull)
+  reviewedAt    DateTime?   @map("reviewed_at")
+  rejectionNote String?     @map("rejection_note")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@index([studentId])
+  @@index([status])
+  @@map("leave_requests")
+}
+
+model SchoolSetting {
+  id               Int      @id @default(1)
+  schoolName       String   @default("SMP Negeri 1 Cerdas Bangsa") @map("school_name")
+  npsn             String?  @default("20102030")
+  address          String?  @default("Jl. Pendidikan No. 45, Jakarta Pusat")
+  phone            String?  @default("021-5551234")
+  email            String?  @default("info@smpn1cerdas.sch.id")
+  principalName    String?  @default("Dr. H. Bambang, M.Pd.") @map("principal_name")
+  principalNip     String?  @default("197001011995011001") @map("principal_nip")
+  checkInStart     String   @default("06:00") @map("check_in_start") // HH:mm
+  checkInEnd       String   @default("07:15") @map("check_in_end") // Batas masuk tepat waktu
+  checkInTolerance String   @default("07:30") @map("check_in_tolerance") // Batas toleransi terlambat
+  checkOutStart    String   @default("14:30") @map("check_out_start")
+  checkOutEnd      String   @default("17:00") @map("check_out_end")
+  checkOutEnabled  Boolean  @default(true) @map("check_out_enabled") // false = sekolah tidak memakai absensi pulang
+  autoAlphaTime    String   @default("12:00") @map("auto_alpha_time") // Finalisasi status alfa
+  activeDays       String   @default("1,2,3,4,5") @map("active_days") // 1=Senin ... 5=Jumat
+  // Ambang persentase (%) untuk label rekomendasi laporan bulanan
+  gradeExcellentMin  Int     @default(95) @map("grade_excellent_min") // >= nilai ini = "Sangat Baik"
+  gradeGoodMin       Int     @default(90) @map("grade_good_min") // >= nilai ini = "Baik"
+  gradeWarningMin    Int     @default(80) @map("grade_warning_min") // >= nilai ini = "Teguran Lisan Wali Kelas"
+  gradeCallParentMin Int     @default(70) @map("grade_call_parent_min") // >= nilai ini = "Peringatan / Panggil Orang Tua", di bawahnya = "Tindakan Khusus"
+  // Ambang persentase (%) untuk kelayakan mengikuti ujian akhir semester
+  semesterEligibleMin Int    @default(90) @map("semester_eligible_min")
+
+  // Pengaturan WhatsApp Gateway & Notifikasi Orang Tua
+  waEnabled           Boolean  @default(true)  @map("wa_enabled")
+  waNotifyHadir       Boolean  @default(true)  @map("wa_notify_hadir")
+  waNotifyTerlambat   Boolean  @default(true)  @map("wa_notify_terlambat")
+  waNotifyIzin        Boolean  @default(true)  @map("wa_notify_izin")
+  waNotifyAlfa        Boolean  @default(true)  @map("wa_notify_alfa")
+  waTemplateHadir     String?  @db.Text        @map("wa_template_hadir")
+  waTemplateTerlambat String?  @db.Text        @map("wa_template_terlambat")
+  waTemplateIzin      String?  @db.Text        @map("wa_template_izin")
+  waTemplateAlfa      String?  @db.Text        @map("wa_template_alfa")
+  waGatewayType       String   @default("BAILEYS") @map("wa_gateway_type") // "BAILEYS" | "GENERIC_API"
+  waApiUrl            String?  @map("wa_api_url")
+  waApiKey            String?  @map("wa_api_key")
+
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("school_settings")
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  date        DateTime @unique @db.Date
+  description String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("holidays")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?  @map("actor_id")
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String   // "LOGIN", "SCAN_CHECK_IN", "UPDATE_ATTENDANCE", dll.
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  oldValues  String?  @db.Text @map("old_values") // JSON format
+  newValues  String?  @db.Text @map("new_values") // JSON format
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model RateLimitHit {
+  id         String   @id @default(cuid())
+  bucket     String   @db.VarChar(191)
+  windowFrom DateTime @map("window_from")
+  count      Int      @default(0)
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([bucket, windowFrom])
+  @@index([expiresAt])
+  @@map("rate_limit_hits")
+}
+
+model WhatsAppLog {
+  id            String   @id @default(cuid())
+  recipient     String   // No HP tujuan (format 628...)
+  recipientName String?  @map("recipient_name")
+  studentId     String?  @map("student_id")
+  message       String   @db.Text
+  status        String   @default("SENT") // "SENT" | "FAILED"
+  error         String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([recipient])
+  @@index([studentId])
+  @@index([createdAt])
+  @@map("whatsapp_logs")
+}
+

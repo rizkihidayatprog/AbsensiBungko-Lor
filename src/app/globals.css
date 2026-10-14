@@ -1,0 +1,158 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color-scheme: light;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Dukungan aksesibilitas: reduksi animasi bagi pengguna yang sensitif gerak */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Indikator fokus yang jelas untuk aksesibilitas navigasi keyboard */
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Scrollbar halus untuk kontainer tabel dan navigasi */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Target sentuh minimal ramah perangkat layar sentuh */
+@media (pointer: coarse) {
+  button,
+  a,
+  input,
+  select {
+    min-height: 42px;
+  }
+}
+
+/* Pastikan semua elemen form dan tabel memiliki teks kontras tinggi (gelap pekat) */
+html {
+  color-scheme: light;
+}
+
+input,
+select,
+textarea {
+  color: #0f172a !important;
+  background-color: #ffffff;
+}
+
+/* Placeholder tajam, terbaca jelas, dan tidak pudar */
+input::placeholder,
+textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
+/* Dropdown option */
+option {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}
+
+/* Tabel header & sel */
+table th {
+  color: #475569 !important;
+}
+table td {
+  color: #0f172a !important;
+}
+
+/* Perbaikan untuk browser autofill agar teks tetap jelas terbaca */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: #0f172a !important;
+  -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Penyesuaian Elemen Kamera QR Scanner */
+#qr-reader {
+  border: none !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  background-color: #020617 !important;
+  /* Jangan paksa position di sini: halaman scanner memakai Tailwind `absolute inset-0` */
+}
+
+#qr-reader video {
+  width: 100% !important;
+  height: 100% !important;
+  /* `contain` menampilkan seluruh frame kamera tanpa memotong sisi gambar.
+     `cover` memotong tepi saat rasio kamera (mis. 4:3) tidak sama dengan panel. */
+  object-fit: contain !important;
+  background-color: #020617;
+}
+
+#qr-reader canvas {
+  display: none !important;
+}
+
+#qr-reader__scan_region {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+#qr-reader__dashboard {
+  display: none !important;
+}
+
+#qr-shaded-region {
+  border-width: 0px !important;
+  border-style: none !important;
+  background-color: transparent !important;
+  display: none !important;
+}
+
+#qr-shaded-region div {
+  background-color: transparent !important;
+  border: none !important;
+}
